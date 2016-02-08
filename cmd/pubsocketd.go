@@ -1,13 +1,15 @@
 package main
 
 import (
-	// "code.google.com/p/go.net/websocket"
+       "crypto/tls"
+       "crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"golang.org/x/net/websocket"
 	"gopkg.in/redis.v1"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -30,6 +32,9 @@ var (
 	websocketAllowableOrigins string
 	websocketAllowableURLs    []url.URL
 	redisClient               *redis.Client
+	tlsCert			  string
+	tlsKey			  string
+	tlsCACert		  string
 )
 
 // What I'd really like to do is pass in a list of allowable Origin
@@ -172,6 +177,10 @@ func main() {
 	flag.StringVar(&redisChannel, "rs-channel", "pubsocketd", "Redis channel")
 	flag.StringVar(&logFile, "ps-log-file", "", "Log requests to this file")
 
+	flag.StringVar(&tlsCert, "tls-cert", "", "")
+	flag.StringVar(&tlsKey, "tls-key", "", "")
+	flag.StringVar(&tlsCACert, "tls-ca-cert", "", "")
+
 	flag.Parse()
 
 	if logFile != "" {
@@ -248,7 +257,40 @@ func main() {
 
 	logger.Printf("[init] listening for pubsub messages from " + redisEndpoint + " sent to the " + redisChannel + " channel")
 
-	if err := http.ListenAndServe(websocketEndpoint, nil); err != nil {
-		logger.Fatalf("Failed to start websocket server, because %v", err)
+	// http://www.bite-code.com/2015/06/25/tls-mutual-auth-in-golang/
+
+	if tlsCert != "" && tlsKey != "" {
+
+		caCert, err := ioutil.ReadFile(tlsCACert)
+
+		if err != nil {
+	   	   log.Fatal(err)
+	        }
+
+		caCertPool := x509.NewCertPool()
+	   	caCertPool.AppendCertsFromPEM(caCert)
+
+	   	tlsConfig := &tls.Config{
+	   	     ClientCAs: caCertPool,
+		     ClientAuth: tls.RequireAndVerifyClientCert,
+		}
+
+	        tlsConfig.BuildNameToCertificate()
+
+		server := &http.Server{
+       		  Addr:      websocketEndpoint,
+	  	  TLSConfig: tlsConfig,
+		}
+
+		if err := server.ListenAndServeTLS(tlsCert, tlsKey); err != nil {
+		   logger.Fatalf("Failed to start websocket server, because %v", err)
+		}
+
+	} else {
+
+		if err := http.ListenAndServe(websocketEndpoint, nil); err != nil {
+		   logger.Fatalf("Failed to start websocket server, because %v", err)
+		}
+	
 	}
 }

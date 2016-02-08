@@ -16,4 +16,4 @@ bin: 	self
 	@GOPATH=$(shell pwd) go build -o bin/pubsocketd cmd/pubsocketd.go
 
 fmt:
-	go fmt cmd/*
+	go fmt cmd/*.go
