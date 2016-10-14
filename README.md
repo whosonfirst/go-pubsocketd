@@ -141,6 +141,10 @@ A boolean flag indicating that the WebSocket server should be run in "insecure" 
 
 This is available only for debugging and should **not** be enabled for production use.
 
+### -ws-heartbeat=false
+
+A boolean flag that activates a keep-alive heartbeat message, sent once every 30 seconds.
+
 ### -ps-log-file="/var/log/pubsocketd.log"
 
 Write all logging to this file, as well as STDOUT.
@@ -228,6 +232,12 @@ If you're running the server in a VM, you may need to explicitly run on host `0.
 Also, if you're using a self-signed SSL certificate, you'll probably need to visit `https://localhost:8080/` or whatever the address is, and create an exception for the SSL validation error.
 
 There's some discussion of the port forwarding issue on [Stack Overflow](http://stackoverflow.com/questions/23840098/empty-reply-from-server-cant-connect-to-vagrant-vm-w-port-forwarding).
+
+---
+
+There's another gotcha that has to do with maintaining an open connection when the site is running through an AWS Elastic Load Balancer. It seems that after 60 seconds of inactivity the connection consistently stops working (even with some reconnection logic on the client side). There might be an ELB configuration to turn this timeout off, but I do not presently know what it is, and we probably want to keep a timeout in place to keep our servers happy. (We did try enabling `proxy_prococol` with nginx, which _seemed_ like the right solution. It wasn't.)
+
+A workaround that does work is to send out a ping every 30 seconds (really any span of time less than 60 seconds). That keeps the connection alive. Use the option `-ws-heartbeat` to send out a `{"heartbeat": 1}` message every 30 seconds.
 
 ## Shout-outs
 
