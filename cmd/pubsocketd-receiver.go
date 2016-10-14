@@ -1,10 +1,17 @@
 package main
 
 import (
+       "encoding/json"
 	"flag"
+	"fmt"
 	"golang.org/x/net/websocket"
 	"log"
+	"strings"
 )
+
+type Message struct {
+     Text string `json:text`
+}
 
 func main() {
 
@@ -24,13 +31,27 @@ func main() {
 	log.Printf("connected to %s and ready to receive new messages\n", *url)
 
 	for {
-		var msg = make([]byte, 512)
+		var msg = make([]byte, 1024)
 		_, err = ws.Read(msg)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log.Printf("%s\n", msg)
+		// https://groups.google.com/forum/#!msg/golang-nuts/77HJlZhWXpk/nyL4XKlnTkUJ
+		
+		s := string(msg)
+		s = strings.Replace(s, "\x00", "", -1)
+		b := []byte(s)
+		
+		var m Message
+		err = json.Unmarshal(b, &m)
+
+		if err != nil {
+		   log.Println(err)
+		   continue
+		}
+		
+		fmt.Println(m.Text)				   
 	}
 }
